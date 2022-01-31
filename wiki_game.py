@@ -33,10 +33,17 @@ def find_path_to_philosphy():
             if (not link.has_attr('title')) or link['href'] in visited or bool(re.search('/wiki/Wikipedia:', link['href'])):
                 return False
 
-            ## need to see about bugs if same word is twice 
-
-            link_indexs = re.search(re.escape(link.text), paragraph.text)
-            link_start = link_indexs.start(0)
+            escaped_link = re.escape(link.text)
+            if escaped_link in seen_links:
+                link_indexs = re.finditer(escaped_link,paragraph.text)[seen_links[escaped_link]]
+                for index, match in enumerate(link_indexs):
+                    if index == seen_links[escaped_link]:
+                        link_start = match.start(0)
+                seen_links[escaped_link] += 1
+            else:
+                seen_links[escaped_link] = 1
+                link_indexs = re.search(escaped_link, paragraph.text)
+                link_start = link_indexs.start(0)
             return  not (range_start < link_start < range_end)
 
         # takes a url and returns html script ## need to add error handling
@@ -57,7 +64,7 @@ def find_path_to_philosphy():
         
         # iterates through all links in all paragraphs and returns the first link that is by the rules
         for paragraph in main_body.find_all('p'):
-
+            seen_links = {} ## keeps track if ive seen links
             open_paranthesis, close_paranthesis = _get_paranthesis(paragraph.text)
             for link in paragraph.find_all(href=True):
                 if _validate_link(link, paragraph, open_paranthesis, close_paranthesis):
