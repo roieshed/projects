@@ -8,7 +8,10 @@ import urllib
 import re
 
 
+class Graph:
 
+    def __init__(self):
+        pass
 
 def find_path_to_philosphy(): 
 
