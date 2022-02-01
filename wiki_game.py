@@ -49,7 +49,7 @@ class Wikipidea:
 
                 # all relevent links in wikipedia have a title attr
                 # if link dosent have title or title has been seen -> invalid link
-                if (not link.has_attr('title')) or bool(re.search('/wiki/Wikipedia:', link['href'])):
+                if (not link.has_attr('title')) or bool(re.search('/wiki/Wikipedia:', link['href'])) or bool(re.search('/wiki/File:', link['href'])) or not link['href'].startswith("/wiki/"):
                     return False
 
                 escaped_text = re.escape(link.text)
