@@ -1,7 +1,6 @@
 #Uses python3
 
-
-from tracemalloc import start
+from os import stat
 import requests
 from bs4 import BeautifulSoup
 import urllib
@@ -9,6 +8,9 @@ import re
 import networkx as nx
 import matplotlib.pyplot as plt
 import time
+from neo4j import GraphDatabase
+from py2neo import Graph, Node, Relationship
+
 
 class My_graph:
     
@@ -19,54 +21,75 @@ class My_graph:
         'circle_color' :'yellow',
         'fail_color' : 'black'
     }
+    PASSWORD = 'Rughtas12!'
+    rel_name = 'next'
 
     def __init__(self):
+        self.g= nx.DiGraph()
+        self.G = Graph(password = self.PASSWORD)
+        
+    @staticmethod
+    def check_if_node_in_graphDB(graph_DB, node):
 
-        self.color_map = []#TODO
-        self.G = nx.DiGraph()
+        if len(graph_DB.nodes.match(topic = node)):
+            return True
+        return False
 
-    def insert_node(self, node, first_node = False, color = COLORS['normal_color']):
+    def insert_node(self, node, first_node = False, website = 'website'):
 
-        if node is None or self.G.has_node(node):
+        if node is None or self.check_if_node_in_graphDB(self.G, node):
             return None
         else:
             if first_node:
-                color = self.COLORS['start_color']
-            self.G.add_node(node)
-            self.add_color(node, color)
+                self.G.create(Node(website, 'first_node', topic = node))
+            else:
+                self.G.create(Node(website, topic = node)) 
+            self.g.add_node(node)
             return node
 
     def insert_edge(self, start_node, end_node):
 
-        self.G.add_edge(start_node, end_node)
+        first_node = self.G.nodes.match(topic = start_node).first()
+        second_node = self.G.nodes.match(topic = end_node).first()
+        self.G.create(Relationship(first_node, self.rel_name , second_node))
+        self.g.add_edge(start_node, end_node)
 
     def _check_circle(self, node1, node2):
 
-        if self.G.has_edge(node1, node2) and self.G.has_edge(node2, node1):
-            return True
-        return False
+        pass
 
     def add_color(self, node, color):
         
-        self.G.nodes[node]['color'] = color
+        pass
 
     def change_color(self, node, color):
 
-        self.G.nodes[node]['color'] = color
+        node = self.G.nodes.match(topic=node).first()
+        node.add_label(color)
+        self.G.push(node)
 
     def change_colors(self, nodes : list, color):
 
         for node in nodes:
             self.change_color(node, color)
 
-    def print_graph(self):
+    def update_node(self, node, label):
+
+        node = self.G.nodes.match(topic=node).first()
+        node.add_label(label)
+        self.G.push(node)
+
+    def update_nodes(self, nodes, label):
         
-        for cycle in nx.simple_cycles(self.G):
-            for node in cycle:
-                self.G.nodes[node]['color'] = self.COLORS['circle_color']
-        colors_map = [self.G.nodes[x].get('color', 'red') for x in self.G.nodes]
-        nx.draw(self.G ,node_color = colors_map , with_labels=True)
-        plt.show()
+        for node in nodes:
+            self.update_node(node, label)
+
+    def print_graph(self):
+
+        "printing graph"
+        for cycle in nx.simple_cycles(self.g):
+            self.update_nodes(cycle, 'cycle')
+
     
 
     
@@ -79,7 +102,7 @@ class Wikipedia:
     RANDOM_PAGE_TOPIC = ('link', {'rel' : 'canonical'})
     MAIN_BODY_XPATH = ('div', {'id' : 'mw-content-text'})
     TEMPLATE = 'https://en.wikipedia.org'
-    END = '/wiki/Philosophy'
+    END = '/wiki/Truth'
    
     
 
@@ -121,7 +144,7 @@ class Wikipedia:
 
     @staticmethod
     def parse_url_to_bs4(url):
-
+        print(url)
         try:
             r = requests.get(url)   
         except:
@@ -159,7 +182,7 @@ class Wikipedia:
         return wiki_href.split('/')[-1]
 
 def build_wiki_graph():
-    ## this function feels very disorginized to me, how would you reccomend to do it?
+   
     topic_in_db = False
     next_topic = wiki.get_random_page_href()
     if g.insert_node(wiki.parse_wiki_href_to_node(next_topic), first_node=True):
@@ -173,12 +196,12 @@ def build_wiki_graph():
                 topic_in_db = True
 
             if next_node == None:
-                g.change_color(current_node, g.COLORS['fail_color'])
+                g.update_node(current_node, 'fail')
             else: 
                 g.insert_edge(current_node, next_node)
 
             if next_topic == wiki.END:
-                g.change_color(next_node, g.COLORS['end_color'])
+                g.update_node(next_node, 'end')
 
 if __name__ == '__main__':
 
@@ -196,7 +219,7 @@ if __name__ == '__main__':
     print(f"it took {end_time - start_time} seconds for everything")
 
     
-#TODO  -> 1) find a graph DB and add to there - NEO4J
+#TODO  -> 1) ADDED TO DB - still need to find cycles in DB -> currently saving a NX graph locally
 #         2) add asyncIO to function, while waiting for the request start a new random
 #         3) make docker image
 #         4) run multiple containers togethor
