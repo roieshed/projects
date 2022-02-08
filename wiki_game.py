@@ -1,12 +1,14 @@
 #Uses python3
 
 
+from tracemalloc import start
 import requests
 from bs4 import BeautifulSoup
 import urllib
 import re
 import networkx as nx
 import matplotlib.pyplot as plt
+import time
 
 class My_graph:
     
@@ -20,33 +22,23 @@ class My_graph:
 
     def __init__(self):
 
-        self.color_map = []
-        self.circle = False
+        self.color_map = []#TODO
         self.G = nx.DiGraph()
 
-    def try_insert_first(self, node, color = COLORS['start_color']):
+    def insert_node(self, node, first_node = False, color = COLORS['normal_color']):
 
-        if self.G.has_node(node):
-            return False
-        self.G.add_node(node)
-        self.add_color(node, color)
-        return True
-
-    def insert_node(self, node):
-
-        if node is None:
-            return
-        if self.G.has_node(node):
-            self.circle = True
+        if node is None or self.G.has_node(node):
+            return None
         else:
+            if first_node:
+                color = self.COLORS['start_color']
             self.G.add_node(node)
-            self.add_color(node)
+            self.add_color(node, color)
+            return node
 
     def insert_edge(self, start_node, end_node):
 
         self.G.add_edge(start_node, end_node)
-        if self._check_circle(start_node, end_node):
-            self.change_colors([start_node, end_node], self.COLORS['circle_color'])
 
     def _check_circle(self, node1, node2):
 
@@ -54,8 +46,8 @@ class My_graph:
             return True
         return False
 
-    def add_color(self, node, color = COLORS['normal_color']):
-
+    def add_color(self, node, color):
+        
         self.G.nodes[node]['color'] = color
 
     def change_color(self, node, color):
@@ -65,10 +57,13 @@ class My_graph:
     def change_colors(self, nodes : list, color):
 
         for node in nodes:
-            self.G.nodes[node]['color'] = color
+            self.change_color(node, color)
 
     def print_graph(self):
         
+        for cycle in nx.simple_cycles(self.G):
+            for node in cycle:
+                self.G.nodes[node]['color'] = self.COLORS['circle_color']
         colors_map = [self.G.nodes[x].get('color', 'red') for x in self.G.nodes]
         nx.draw(self.G ,node_color = colors_map , with_labels=True)
         plt.show()
@@ -165,37 +160,55 @@ class Wikipedia:
 
 def build_wiki_graph():
     ## this function feels very disorginized to me, how would you reccomend to do it?
-    g.circle = False
-    topic = wiki.get_random_page_href()
-    if g.try_insert_first(wiki.parse_wiki_href_to_node(topic)):
-        while topic != wiki.END and not g.circle:
+    topic_in_db = False
+    next_topic = wiki.get_random_page_href()
+    if g.insert_node(wiki.parse_wiki_href_to_node(next_topic), first_node=True):
+        while next_topic != wiki.END and not topic_in_db:
     
-            current = topic
-            topic = wiki.get_next_topic_href(topic)
-            current_node = wiki.parse_wiki_href_to_node(current)
-            next_node = wiki.parse_wiki_href_to_node(topic)
-            g.insert_node(next_node)
-            g.insert_edge(current_node, next_node)
+            current_topic = next_topic
+            next_topic = wiki.get_next_topic_href(next_topic)
+            current_node = wiki.parse_wiki_href_to_node(current_topic)
+            next_node = wiki.parse_wiki_href_to_node(next_topic)
+            if not g.insert_node(next_node):
+                topic_in_db = True
 
             if next_node == None:
                 g.change_color(current_node, g.COLORS['fail_color'])
-            if topic == wiki.END:
+            else: 
+                g.insert_edge(current_node, next_node)
+
+            if next_topic == wiki.END:
                 g.change_color(next_node, g.COLORS['end_color'])
 
 if __name__ == '__main__':
 
+    start_time = time.time()
     g = My_graph()
     wiki = Wikipedia
-    for i in range(int(input())):
+    for i in range(int(input("how many times?"))):
+        cycle_start_time = time.time()
         build_wiki_graph()
-        print(f'managed cycle {i}')
+        cycle_end_time = time.time()
+        print(f'managed cycle {i} in {cycle_end_time - cycle_start_time} seconds')
+
     g.print_graph()
+    end_time = time.time()
+    print(f"it took {end_time - start_time} seconds for everything")
 
     
-    
+#TODO  -> 1) find a graph DB and add to there - NEO4J
+#         2) add asyncIO to function, while waiting for the request start a new random
+#         3) make docker image
+#         4) run multiple containers togethor
+
 
     
-        
+## make it async
+## with DB
+## with docker
+## with workerim
+
+
     
 
 
